@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PIXEL SETTLE TOOL - ADVANCED</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --pixel-gold: #f1c40f;
+            --pixel-green: #2ecc71;
+            --pixel-bg: #1a1a1a;
+            --theme-color: #f1c40f;
+            --custom-font: 'Press Start 2P', cursive; /* 預設字體 */
+        }
+
+        body {
+            background-color: var(--pixel-bg);
+            color: white;
+            font-family: var(--custom-font);
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* 左側控制面板 */
+        .left-panel {
+            width: 380px;
+            background: #2c3e50;
+            padding: 20px;
+            box-shadow: 5px 0 0 #000;
+            display: flex;
+            flex-direction: column;
+            z-index: 10;
+            overflow-y: auto;
+        }
+
+        .section {
+            border: 2px solid #555;
+            padding: 15px;
+            margin-bottom: 20px;
+            background: rgba(0,0,0,0.2);
+        }
+        h3 {
+            font-size: 11px;
+            margin-top: 0;
+            color: #bdc3c7;
+            border-bottom: 2px solid #555;
+            padding-bottom: 10px;
+        }
+        .input-group {
+            display: flex;
+            margin-bottom: 8px;
+            background: #000;
+            padding: 5px;
+            border: 1px solid #444;
+            align-items: center;
+            gap: 6px;
+        }
+        label {
+            font-size: 8px;
+            display: block;
+            margin: 10px 0 5px 0;
+            color: #95a5a6;
+        }
+        input, select {
+            background: transparent;
+            border: none;
+            color: #fff;
+            font-family: sans-serif;
+            font-size: 12px;
+            padding: 5px;
+            outline: none;
+            width: 100%;
+        }
+
+        /* 讓輸入資料時仍保有原本風格 */
+        .p-name, .p-count, .p-score, .btn-start, .btn-add { font-family: var(--custom-font); }
+
+        button {
+            cursor: pointer;
+            padding: 10px;
+            margin-top: 10px;
+            font-size: 10px;
+            border: 4px solid #000;
+            transition: 0.1s;
+        }
+        .btn-add { background: #34495e; color: white; width: 100%; }
+        .btn-start { background: var(--pixel-green); color: white; width: 100%; margin-top: 20px; font-size: 14px; }
+
+        /* 列控制按鈕 */
+        .row-btn {
+            width: auto;
+            margin-top: 0;
+            padding: 7px 8px;
+            font-size: 9px;
+            border-width: 3px;
+            background: #222;
+            color: #fff;
+            font-family: var(--custom-font);
+            white-space: nowrap;
+        }
+        .row-btn:hover { filter: brightness(1.15); }
+        .row-btn.danger { background: #8e2a2a; }
+        .row-btn.muted { background: #333; }
+
+        /* 右側展示區 */
+        .right-panel {
+            flex-grow: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            background: #111;
+            overflow: hidden;
+        }
+
+        /* 背景圖層 */
+        #bg-layer {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background-size: cover;
+            background-position: center;
+            opacity: 0.5;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        /* 掃描線特效層 */
+        .scanlines {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background:
+                linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%),
+                linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+            background-size: 100% 4px, 3px 100%;
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        #result-screen {
+            position: relative;
+            z-index: 3;
+            width: 80%;
+            max-width: 900px;
+            display: none;
+            font-family: var(--custom-font);
+        }
+
+        .title-display {
+            text-align: center;
+            color: var(--theme-color);
+            margin-bottom: 40px;
+            text-shadow: 4px 4px #000;
+            animation: blink 0.8s infinite;
+            line-height: 1.2;
+        }
+
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.8; } }
+
+        .result-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 20px 0;
+            opacity: 0;
+            transform: translateX(-10px);
+            transition: all 0.3s ease;
+        }
+        .result-row.show { opacity: 1; transform: translateX(0); }
+        .score-val { color: var(--theme-color); }
+
+        .total-section {
+            border-top: 4px dashed #444;
+            margin-top: 30px;
+            padding-top: 20px;
+            color: #e74c3c;
+            display: none;
+            justify-content: space-between;
+        }
+
+        .fine-print {
+            font-size: 8px;
+            opacity: 0.8;
+            line-height: 1.5;
+            margin-top: 8px;
+        }
+
+        /* 錄影模式：只留下右側結算區，避免錄到左側控制欄 */
+        body.recording-mode .left-panel { display: none; }
+        body.recording-mode .right-panel { flex: 1 1 auto; width: 100vw; }
+        body.recording-mode #result-screen { width: 92%; max-width: 1100px; }
+    </style>
+</head>
+<body>
+    <div class="left-panel">
+        <div class="section">
+            <h3>APPEARANCE 設定</h3>
+
+            <label>1. 自定義字體 (.ttf / .otf)</label>
+            <div class="input-group">
+                <input type="file" id="cfg-font-file" accept=".ttf, .otf" onchange="loadCustomFont(this)">
+            </div>
+
+            <label>2. 背景圖片</label>
+            <div class="input-group">
+                <input type="file" id="cfg-bg-file" accept="image/*" onchange="loadBgImage(this)">
+            </div>
+            <label>背景透明度 (<span id="alpha-val">50</span>%)</label>
+            <div class="input-group">
+                <input type="range" id="cfg-bg-alpha" min="0" max="100" value="50" oninput="updateBgAlpha(this.value)">
+            </div>
+
+            <label>3. 面板寬度 (<span id="width-val">80</span>%)</label>
+            <div class="input-group">
+                <input type="range" id="cfg-width" min="30" max="95" value="80" oninput="updatePanelWidth(this.value)">
+            </div>
+
+            <hr style="border:1px solid #444; margin:15px 0;">
+
+            <label>TITLE 文字</label>
+            <div class="input-group"><input type="text" id="cfg-title" value="STAGE CLEAR"></div>
+
+            <label>TITLE 字級 (px)</label>
+            <div class="input-group"><input type="number" id="cfg-title-size" value="32"></div>
+
+            <label>項目字級 (px)</label>
+            <div class="input-group"><input type="number" id="cfg-item-size" value="16"></div>
+
+            <label>動畫速度 (<span id="speed-val">1.0</span>x)</label>
+            <div class="input-group">
+                <input type="range" id="cfg-speed" min="0.1" max="3" step="0.1" value="1" oninput="document.getElementById('speed-val').innerText = this.value">
+            </div>
+
+            <label>主題配色</label>
+            <div class="input-group">
+                <select id="cfg-color" onchange="updateTheme()">
+                    <option value="#f1c40f">CLASSIC GOLD</option>
+                    <option value="#00f2ff">CYBER BLUE</option>
+                    <option value="#ff00ff">NEON PINK</option>
+                    <option value="#2ecc71">SLIME GREEN</option>
+                    <option value="#e67e22">VIVID ORANGE</option>
+                </select>
+            </div>
+
+            <hr style="border:1px solid #444; margin:15px 0;">
+
+            <label>音效</label>
+            <div class="input-group">
+                <label style="margin:0; width:auto;">
+                    <input id="cfg-sfx-enable" type="checkbox" checked style="width:auto; margin-right:8px;">
+                    啟用
+                </label>
+                <div style="flex:1;"></div>
+            </div>
+            <label>音量 (<span id="sfx-vol-val">30</span>%)</label>
+            <div class="input-group">
+                <input type="range" id="cfg-sfx-volume" min="0" max="100" value="30" oninput="document.getElementById('sfx-vol-val').innerText = this.value">
+            </div>
+            <label>音量增益 (<span id="sfx-boost-val">2.0</span>x)</label>
+            <div class="input-group">
+                <input type="range" id="cfg-sfx-boost" min="1" max="6" step="0.1" value="2"
+                       oninput="document.getElementById('sfx-boost-val').innerText = this.value">
+            </div>
+            <div class="fine-print">提示：瀏覽器通常需要點擊「EXECUTE」後才允許播放音效。</div>
+
+            <hr style="border:1px solid #444; margin:15px 0;">
+
+            <label>錄影輸出（自動下載影片）</label>
+            <div class="input-group">
+                <label style="margin:0; width:auto;">
+                    <input id="cfg-rec-enable" type="checkbox" style="width:auto; margin-right:8px;">
+                    啟用
+                </label>
+                <label style="margin:0; width:auto;">
+                    <input id="cfg-rec-only-right" type="checkbox" checked style="width:auto; margin-right:8px;">
+                    只錄右側結算區
+                </label>
+                <button class="row-btn muted" type="button" onclick="requestRecordingPermission()">授權錄影</button>
+            </div>
+            <div class="fine-print">
+                狀態：<span id="rec-status">未授權</span><br>
+                輸出格式：<span id="rec-format">（尚未決定）</span><br>
+                注意：多數瀏覽器不支援直接輸出 MP4，會自動改用 WebM（可再用 ffmpeg 轉檔）。
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>DATA 結算數據</h3>
+
+            <label>ROW 數量</label>
+            <div class="input-group">
+                <input type="number" id="cfg-row-count" min="1" value="1">
+                <button class="row-btn muted" type="button" onclick="applyRowCount()">APPLY</button>
+            </div>
+
+            <label>排序</label>
+            <div class="input-group">
+                <select id="cfg-sort-by">
+                    <option value="manual">手動順序</option>
+                    <option value="name">ITEM</option>
+                    <option value="qty">QTY</option>
+                    <option value="pts">PTS</option>
+                    <option value="subtotal">小計 (QTY×PTS)</option>
+                </select>
+                <select id="cfg-sort-dir" style="max-width: 120px;">
+                    <option value="asc">ASC</option>
+                    <option value="desc">DESC</option>
+                </select>
+                <button class="row-btn muted" type="button" onclick="sortRows()">SORT</button>
+            </div>
+
+            <div id="fields-container">
+                <div class="input-group item-row">
+                    <input type="text" placeholder="ITEM" class="p-name" value="ENEMIES">
+                    <input type="number" placeholder="QTY" class="p-count" value="12">
+                    <input type="number" placeholder="PTS" class="p-score" value="100">
+                    <button class="row-btn muted" type="button" title="上移" onclick="moveRow(this, -1)">↑</button>
+                    <button class="row-btn muted" type="button" title="下移" onclick="moveRow(this, 1)">↓</button>
+                    <button class="row-btn danger" type="button" title="刪除" onclick="removeRow(this)">DEL</button>
+                </div>
+            </div>
+            <button class="btn-add" onclick="addField()">+ ADD NEW ROW</button>
+        </div>
+
+        <button class="btn-start" onclick="startCalculation()">EXECUTE</button>
+    </div>
+
+    <div class="right-panel">
+        <div id="bg-layer"></div>
+        <div class="scanlines"></div>
+        <div id="result-screen">
+            <div id="display-title" class="title-display">STAGE CLEAR</div>
+            <div id="results-list"></div>
+            <div class="total-section" id="total-row">
+                <span>TOTAL</span>
+                <span id="final-total">000000</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ----------------------------
+        // 工具
+        // ----------------------------
+        const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+        function clamp(n, min, max) {
+            return Math.max(min, Math.min(max, n));
+        }
+
+        // ----------------------------
+        // 音效（Web Audio，免外部音檔）
+        // ----------------------------
+        let __audioCtx = null;
+
+        function sfxEnabled() {
+            const el = document.getElementById('cfg-sfx-enable');
+            return !!el && el.checked;
+        }
+
+        function sfxGain() {
+            const vol = parseInt(document.getElementById('cfg-sfx-volume')?.value || '0', 10);
+            const boost = parseFloat(document.getElementById('cfg-sfx-boost')?.value || '1') || 1;
+            // 音量％ × 增益（保守上限，避免爆音）
+            return clamp((vol / 100) * boost, 0, 3);
+        }
+
+        function getAudioCtx() {
+            if (!__audioCtx) {
+                const Ctx = window.AudioContext || window.webkitAudioContext;
+                if (!Ctx) return null;
+                __audioCtx = new Ctx();
+            }
+            if (__audioCtx.state === 'suspended') {
+                // 使用者點擊後呼叫通常能 resume 成功
+                __audioCtx.resume().catch(() => {});
+            }
+            return __audioCtx;
+        }
+
+        function playTone({ freq = 440, duration = 0.06, type = 'square', gain = 0.06, detune = 0 } = {}) {
+            if (!sfxEnabled()) return;
+            const ctx = getAudioCtx();
+            if (!ctx) return;
+
+            const g = gain * sfxGain();
+            if (g <= 0) return;
+
+            const now = ctx.currentTime;
+            const osc = ctx.createOscillator();
+            const amp = ctx.createGain();
+
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, now);
+            if (detune) osc.detune.setValueAtTime(detune, now);
+
+            // 短音：用 envelope 避免爆音
+            amp.gain.setValueAtTime(0.0001, now);
+            amp.gain.exponentialRampToValueAtTime(g, now + 0.01);
+            amp.gain.exponentialRampToValueAtTime(0.0001, now + Math.max(0.02, duration));
+
+            osc.connect(amp);
+            amp.connect(ctx.destination);
+
+            osc.start(now);
+            osc.stop(now + Math.max(0.02, duration) + 0.02);
+        }
+
+        function sfxTitle() {
+            playTone({ freq: 659, duration: 0.07, type: 'square', gain: 0.08 });
+            playTone({ freq: 988, duration: 0.08, type: 'square', gain: 0.06 });
+        }
+
+        function sfxRowReveal() {
+            playTone({ freq: 880, duration: 0.05, type: 'square', gain: 0.06 });
+        }
+
+        function sfxTick(progress) {
+            const f = 420 + Math.floor(progress * 220);
+            playTone({ freq: f, duration: 0.03, type: 'square', gain: 0.03 });
+        }
+
+        function sfxRowDone() {
+            playTone({ freq: 740, duration: 0.05, type: 'square', gain: 0.05 });
+        }
+
+        function sfxTotal() {
+            playTone({ freq: 523, duration: 0.06, type: 'square', gain: 0.08 });
+            playTone({ freq: 659, duration: 0.06, type: 'square', gain: 0.07 });
+            playTone({ freq: 784, duration: 0.10, type: 'square', gain: 0.06 });
+        }
+
+        // ----------------------------
+        // 錄影（MediaRecorder）
+        // ----------------------------
+        let __captureStream = null;
+        let __recorder = null;
+        let __recChunks = [];
+        let __recMimeType = '';
+        let __recHadPermission = false;
+
+        function recEnabled() {
+            const el = document.getElementById('cfg-rec-enable');
+            return !!el && el.checked;
+        }
+
+        function recOnlyRight() {
+            const el = document.getElementById('cfg-rec-only-right');
+            return !!el && el.checked;
+        }
+
+        function setRecordingMode(on) {
+            document.body.classList.toggle('recording-mode', !!on);
+        }
+
+        function setRecStatus(text) {
+            const el = document.getElementById('rec-status');
+            if (el) el.innerText = text;
+        }
+
+        function setRecFormat(text) {
+            const el = document.getElementById('rec-format');
+            if (el) el.innerText = text;
+        }
+
+        function pickBestMimeType() {
+            if (!window.MediaRecorder) return '';
+            const candidates = [
+                // 部分 Safari/平台可能支援 mp4，但多數 Chrome/Firefox 只支援 webm
+                'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
+                'video/mp4;codecs=avc1,mp4a',
+                'video/mp4',
+                'video/webm;codecs=vp9,opus',
+                'video/webm;codecs=vp8,opus',
+                'video/webm',
+            ];
+            for (const t of candidates) {
+                try {
+                    if (MediaRecorder.isTypeSupported(t)) return t;
+                } catch (_) {}
+            }
+            return '';
+        }
+
+        function downloadBlob(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 4000);
+        }
+
+        async function requestRecordingPermission() {
+            if (!navigator.mediaDevices?.getDisplayMedia) {
+                setRecStatus('此瀏覽器不支援錄影');
+                return;
+            }
+
+            try {
+                // 需要使用者手勢（點擊按鈕）才會跳授權視窗
+                const stream = await navigator.mediaDevices.getDisplayMedia({
+                    video: { frameRate: 60 },
+                    audio: true,
+                    preferCurrentTab: true,
+                });
+
+                __captureStream = stream;
+                __recHadPermission = true;
+
+                // 使用者手動停止分享時，清理狀態
+                const tracks = stream.getTracks();
+                for (const tr of tracks) {
+                    tr.addEventListener('ended', () => {
+                        if (__recorder && __recorder.state !== 'inactive') {
+                            try { __recorder.stop(); } catch (_) {}
+                        }
+                        __captureStream = null;
+                        __recHadPermission = false;
+                        setRecordingMode(false);
+                        setRecStatus('已停止分享');
+                    });
+                }
+
+                __recMimeType = pickBestMimeType();
+                setRecFormat(__recMimeType || '（不支援 MediaRecorder 編碼）');
+                setRecStatus('已授權（待開始）');
+            } catch (err) {
+                setRecStatus('授權取消/失敗');
+            }
+        }
+
+        function isRecordingActive() {
+            return !!__recorder && __recorder.state !== 'inactive';
+        }
+
+        async function maybeStartRecording() {
+            if (!recEnabled()) return false;
+            if (!__captureStream || !__recHadPermission) {
+                setRecStatus('未授權（請先點「授權錄影」）');
+                return false;
+            }
+            if (!window.MediaRecorder) {
+                setRecStatus('此瀏覽器不支援 MediaRecorder');
+                return false;
+            }
+            if (isRecordingActive()) return true;
+
+            // 只錄右側：開始錄影前先暫時隱藏左側控制欄
+            if (recOnlyRight()) {
+                setRecordingMode(true);
+                // 讓重排完成，避免第一幀還錄到左側
+                await sleep(50);
+            }
+
+            __recMimeType = __recMimeType || pickBestMimeType();
+            setRecFormat(__recMimeType || '（不支援 MediaRecorder 編碼）');
+            if (!__recMimeType) {
+                setRecStatus('無可用輸出格式');
+                setRecordingMode(false);
+                return false;
+            }
+
+            __recChunks = [];
+            try {
+                __recorder = new MediaRecorder(__captureStream, {
+                    mimeType: __recMimeType,
+                    videoBitsPerSecond: 6_000_000,
+                });
+            } catch (_) {
+                // 某些瀏覽器對 options 比較嚴格，退回不帶 options
+                try {
+                    __recorder = new MediaRecorder(__captureStream);
+                    __recMimeType = __recorder.mimeType || __recMimeType;
+                    setRecFormat(__recMimeType || '（未知）');
+                } catch (err) {
+                    setRecStatus('錄影初始化失敗');
+                    setRecordingMode(false);
+                    return false;
+                }
+            }
+
+            __recorder.ondataavailable = (e) => {
+                if (e.data && e.data.size > 0) __recChunks.push(e.data);
+            };
+            __recorder.onerror = () => setRecStatus('錄影中發生錯誤');
+            __recorder.onstart = () => setRecStatus('錄影中…');
+
+            // timeslice：讓 chunk 持續寫入，避免長片段記憶體壓力
+            __recorder.start(500);
+            return true;
+        }
+
+        async function maybeStopRecordingAndDownload() {
+            if (!isRecordingActive()) return;
+
+            const recorder = __recorder;
+            const mime = __recMimeType || recorder.mimeType || 'video/webm';
+
+            await new Promise(resolve => {
+                recorder.onstop = () => resolve();
+                try { recorder.stop(); } catch (_) { resolve(); }
+            });
+
+            setRecStatus('處理檔案中…');
+            const blob = new Blob(__recChunks, { type: mime });
+            __recChunks = [];
+
+            const isMp4 = (mime || '').includes('mp4');
+            const ext = isMp4 ? 'mp4' : 'webm';
+            const ts = new Date().toISOString().replace(/[:.]/g, '-');
+            downloadBlob(blob, `score-${ts}.${ext}`);
+            setRecStatus(`已下載：.${ext.toUpperCase()}`);
+            setRecordingMode(false);
+        }
+
+        // ----------------------------
+        // 1. 載入自定義字體
+        // ----------------------------
+        function loadCustomFont(input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const newFont = new FontFace('CustomFont', e.target.result);
+                    newFont.load().then(function(loadedFace) {
+                        document.fonts.add(loadedFace);
+                        document.documentElement.style.setProperty('--custom-font', 'CustomFont');
+                    });
+                };
+                reader.readAsArrayBuffer(input.files[0]);
+            }
+        }
+
+        // ----------------------------
+        // 2. 載入背景圖與透明度
+        // ----------------------------
+        function loadBgImage(input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('bg-layer').style.backgroundImage = `url(${e.target.result})`;
+                };
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+        function updateBgAlpha(val) {
+            document.getElementById('alpha-val').innerText = val;
+            document.getElementById('bg-layer').style.opacity = val / 100;
+        }
+
+        // ----------------------------
+        // 3. 調整面板寬度 / 主題
+        // ----------------------------
+        function updatePanelWidth(val) {
+            document.getElementById('width-val').innerText = val;
+            document.getElementById('result-screen').style.width = val + '%';
+        }
+
+        function updateTheme() {
+            const color = document.getElementById('cfg-color').value;
+            document.documentElement.style.setProperty('--theme-color', color);
+        }
+
+        // ----------------------------
+        // Row 管理：新增 / 刪除 / 上下移 / 依條件排序 / 套用列數
+        // ----------------------------
+        function wireRowButtons(rowDiv) {
+            // 讓新增列也具備上/下/刪功能
+            const btnUp = rowDiv.querySelector('[data-row-up]');
+            const btnDown = rowDiv.querySelector('[data-row-down]');
+            const btnDel = rowDiv.querySelector('[data-row-del]');
+            if (btnUp) btnUp.onclick = () => moveRow(btnUp, -1);
+            if (btnDown) btnDown.onclick = () => moveRow(btnDown, 1);
+            if (btnDel) btnDel.onclick = () => removeRow(btnDel);
+        }
+
+        function updateRowCountUI() {
+            const container = document.getElementById('fields-container');
+            const rows = container.querySelectorAll('.item-row');
+            const input = document.getElementById('cfg-row-count');
+            input.value = rows.length;
+        }
+
+        function addField() {
+            const div = document.createElement('div');
+            div.className = 'input-group item-row';
+            div.innerHTML = `
+                <input type="text" placeholder="ITEM" class="p-name">
+                <input type="number" placeholder="QTY" class="p-count">
+                <input type="number" placeholder="PTS" class="p-score">
+                <button class="row-btn muted" type="button" title="上移" data-row-up>↑</button>
+                <button class="row-btn muted" type="button" title="下移" data-row-down>↓</button>
+                <button class="row-btn danger" type="button" title="刪除" data-row-del>DEL</button>
+            `;
+            document.getElementById('fields-container').appendChild(div);
+            wireRowButtons(div);
+            updateRowCountUI();
+        }
+
+        function removeRow(btn) {
+            const container = document.getElementById('fields-container');
+            const rows = container.querySelectorAll('.item-row');
+            if (rows.length <= 1) return; // 至少保留一列
+            const row = btn.closest('.item-row');
+            if (row) row.remove();
+            updateRowCountUI();
+        }
+
+        function moveRow(btn, dir) {
+            const row = btn.closest('.item-row');
+            if (!row) return;
+            const container = document.getElementById('fields-container');
+            const rows = Array.from(container.querySelectorAll('.item-row'));
+            const idx = rows.indexOf(row);
+            if (idx < 0) return;
+            const targetIdx = idx + dir;
+            if (targetIdx < 0 || targetIdx >= rows.length) return;
+
+            // 重新插入以達到排序
+            if (dir < 0) {
+                container.insertBefore(row, rows[targetIdx]);
+            } else {
+                container.insertBefore(rows[targetIdx], row);
+            }
+            // 手動移動後，排序模式切回 manual
+            document.getElementById('cfg-sort-by').value = 'manual';
+            updateRowCountUI();
+        }
+
+        function getRowData(rowDiv) {
+            const name = (rowDiv.querySelector('.p-name')?.value || '').trim();
+            const qty = parseInt(rowDiv.querySelector('.p-count')?.value || '0', 10) || 0;
+            const pts = parseInt(rowDiv.querySelector('.p-score')?.value || '0', 10) || 0;
+            const subtotal = qty * pts;
+            return { name, qty, pts, subtotal };
+        }
+
+        function sortRows() {
+            const by = document.getElementById('cfg-sort-by').value;
+            if (by === 'manual') return;
+
+            const dir = document.getElementById('cfg-sort-dir').value;
+            const mul = dir === 'desc' ? -1 : 1;
+
+            const container = document.getElementById('fields-container');
+            const rows = Array.from(container.querySelectorAll('.item-row'));
+
+            const decorated = rows.map((row, index) => {
+                const data = getRowData(row);
+                return { row, index, data };
+            });
+
+            decorated.sort((a, b) => {
+                let av, bv;
+                switch (by) {
+                    case 'name':
+                        av = a.data.name.toUpperCase();
+                        bv = b.data.name.toUpperCase();
+                        break;
+                    case 'qty':
+                        av = a.data.qty;
+                        bv = b.data.qty;
+                        break;
+                    case 'pts':
+                        av = a.data.pts;
+                        bv = b.data.pts;
+                        break;
+                    case 'subtotal':
+                        av = a.data.subtotal;
+                        bv = b.data.subtotal;
+                        break;
+                    default:
+                        av = a.index;
+                        bv = b.index;
+                }
+                if (av < bv) return -1 * mul;
+                if (av > bv) return 1 * mul;
+                // 穩定排序：相等時保持原本順序
+                return (a.index - b.index);
+            });
+
+            for (const item of decorated) container.appendChild(item.row);
+            updateRowCountUI();
+        }
+
+        function applyRowCount() {
+            const input = document.getElementById('cfg-row-count');
+            let target = parseInt(input.value || '1', 10);
+            if (!Number.isFinite(target)) target = 1;
+            target = clamp(target, 1, 50);
+            input.value = target;
+
+            const container = document.getElementById('fields-container');
+            let rows = container.querySelectorAll('.item-row');
+            while (rows.length < target) {
+                addField();
+                rows = container.querySelectorAll('.item-row');
+            }
+            while (rows.length > target) {
+                const last = rows[rows.length - 1];
+                if (rows.length <= 1) break;
+                last.remove();
+                rows = container.querySelectorAll('.item-row');
+            }
+            updateRowCountUI();
+        }
+
+        // 初始化：讓第一列也能用 dataset 按鈕 wiring（保險）
+        (function initFirstRow() {
+            const firstRow = document.querySelector('.item-row');
+            if (firstRow) wireRowButtons(firstRow);
+            updateRowCountUI();
+        })();
+
+        // ----------------------------
+        // 計分動畫
+        // ----------------------------
+        async function animateNumber(element, target, speedMultiplier, opts = {}) {
+            let current = 0;
+            const duration = 600 / speedMultiplier;
+            const startTime = performance.now();
+            let lastTickAt = startTime;
+            const tickIntervalMs = opts.tickIntervalMs ?? (60 / speedMultiplier);
+
+            return new Promise(resolve => {
+                function update(now) {
+                    if (opts.isCancelled?.()) {
+                        resolve();
+                        return;
+                    }
+
+                    const elapsed = now - startTime;
+                    const progress = Math.min(elapsed / duration, 1);
+                    current = Math.floor(progress * target);
+                    element.innerText = current.toString().padStart(6, '0');
+
+                    if (opts.onTick && now - lastTickAt >= tickIntervalMs && progress < 1) {
+                        lastTickAt = now;
+                        opts.onTick({ progress, value: current, target });
+                    }
+
+                    if (progress < 1) {
+                        requestAnimationFrame(update);
+                    } else {
+                        element.innerText = target.toString().padStart(6, '0');
+                        if (opts.onDone) opts.onDone({ target });
+                        resolve();
+                    }
+                }
+                requestAnimationFrame(update);
+            });
+        }
+
+        let __calcRunId = 0;
+
+        async function startCalculation() {
+            // 取消前一次尚未結束的計算（避免重複點擊造成音效/動畫疊加）
+            const runId = ++__calcRunId;
+            const isCancelled = () => runId !== __calcRunId;
+
+            const screen = document.getElementById('result-screen');
+            const list = document.getElementById('results-list');
+            const totalRow = document.getElementById('total-row');
+            const speedMultiplier = parseFloat(document.getElementById('cfg-speed').value);
+
+            // 觸發 audio resume（需使用者手勢）
+            getAudioCtx();
+
+            const titleBox = document.getElementById('display-title');
+            titleBox.innerText = document.getElementById('cfg-title').value;
+            titleBox.style.fontSize = document.getElementById('cfg-title-size').value + 'px';
+            const itemSize = document.getElementById('cfg-item-size').value + 'px';
+
+            // 以目前 DOM 的 row 順序為準（可手動排序/套用排序後都會反映）
+            const rows = Array.from(document.querySelectorAll('#fields-container .item-row'));
+
+            list.innerHTML = '';
+            totalRow.style.display = 'none';
+            totalRow.style.fontSize = (parseInt(document.getElementById('cfg-item-size').value, 10) * 1.5) + 'px';
+            screen.style.display = 'block';
+
+            // 先讓畫面顯示出來（確保 Title 先出現）
+            await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+            // 若有啟用錄影：在 Title 出現後、計分開始前自動開始錄影
+            const didStartRec = await maybeStartRecording();
+
+            // Title 出現後：音效 + 固定停頓 0.5 秒
+            sfxTitle();
+            await sleep(500);
+            if (isCancelled()) {
+                if (didStartRec) await maybeStopRecordingAndDownload();
+                return;
+            }
+
+            let grandTotal = 0;
+
+            for (let i = 0; i < rows.length; i++) {
+                if (isCancelled()) {
+                    if (didStartRec) await maybeStopRecordingAndDownload();
+                    return;
+                }
+
+                const nameEl = rows[i].querySelector('.p-name');
+                const qtyEl = rows[i].querySelector('.p-count');
+                const ptsEl = rows[i].querySelector('.p-score');
+
+                const name = (nameEl?.value || '').trim();
+                if (!name) continue;
+
+                const qty = parseInt(qtyEl?.value || '0', 10) || 0;
+                const pts = parseInt(ptsEl?.value || '0', 10) || 0;
+                const rowTotal = qty * pts;
+                grandTotal += rowTotal;
+
+                const rowDiv = document.createElement('div');
+                rowDiv.className = 'result-row';
+                rowDiv.style.fontSize = itemSize;
+                rowDiv.style.transition = `all ${0.3 / speedMultiplier}s ease`;
+                rowDiv.innerHTML = `<span>${name.toUpperCase()} x${qty}</span>
+                                    <span class="score-val">000000</span>`;
+                list.appendChild(rowDiv);
+
+                await sleep(100 / speedMultiplier);
+                if (isCancelled()) {
+                    if (didStartRec) await maybeStopRecordingAndDownload();
+                    return;
+                }
+
+                rowDiv.classList.add('show');
+                sfxRowReveal();
+
+                const scoreEl = rowDiv.querySelector('.score-val');
+                await animateNumber(scoreEl, rowTotal, speedMultiplier, {
+                    isCancelled,
+                    tickIntervalMs: 70 / speedMultiplier,
+                    onTick: ({ progress }) => sfxTick(progress),
+                    onDone: () => sfxRowDone(),
+                });
+
+                await sleep(150 / speedMultiplier);
+            }
+
+            if (isCancelled()) {
+                if (didStartRec) await maybeStopRecordingAndDownload();
+                return;
+            }
+            totalRow.style.display = 'flex';
+            sfxTotal();
+
+            await animateNumber(document.getElementById('final-total'), grandTotal, speedMultiplier, {
+                isCancelled,
+                tickIntervalMs: 55 / speedMultiplier,
+                onTick: ({ progress }) => sfxTick(progress),
+                onDone: () => sfxTotal(),
+            });
+
+            if (didStartRec) await maybeStopRecordingAndDownload();
+        }
+    </script>
+</body>
+</html>
