@@ -181,6 +181,23 @@
             justify-content: space-between;
         }
 
+        /* TOTAL 結算完成後：arcade 風格彩色交替閃爍 */
+        @keyframes arcade-flash {
+            0%   { color: #ff2bd6; text-shadow: 0 0 6px rgba(255,43,214,.85), 4px 4px #000; filter: hue-rotate(0deg); }
+            20%  { color: #00f2ff; text-shadow: 0 0 6px rgba(0,242,255,.85), 4px 4px #000; filter: hue-rotate(45deg); }
+            40%  { color: #f1c40f; text-shadow: 0 0 6px rgba(241,196,15,.85), 4px 4px #000; filter: hue-rotate(90deg); }
+            60%  { color: #2ecc71; text-shadow: 0 0 6px rgba(46,204,113,.85), 4px 4px #000; filter: hue-rotate(135deg); }
+            80%  { color: #ff6b00; text-shadow: 0 0 6px rgba(255,107,0,.85), 4px 4px #000; filter: hue-rotate(180deg); }
+            100% { color: #ff2bd6; text-shadow: 0 0 6px rgba(255,43,214,.85), 4px 4px #000; filter: hue-rotate(360deg); }
+        }
+
+        .total-section.total-complete {
+            animation: arcade-flash 0.55s steps(2, end) infinite;
+        }
+        .total-section.total-complete #final-total {
+            animation: arcade-flash 0.55s steps(2, end) infinite;
+        }
+
         .fine-print {
             font-size: 8px;
             opacity: 0.8;
@@ -881,6 +898,7 @@
 
             list.innerHTML = '';
             totalRow.style.display = 'none';
+            totalRow.classList.remove('total-complete');
             totalRow.style.fontSize = (parseInt(document.getElementById('cfg-item-size').value, 10) * 1.5) + 'px';
             screen.style.display = 'block';
 
@@ -959,6 +977,10 @@
                 onTick: ({ progress }) => sfxTick(progress),
                 onDone: () => sfxTotal(),
             });
+
+            // 結算完成：加上 arcade 閃爍，畫面多停留 5 秒
+            totalRow.classList.add('total-complete');
+            await sleep(5000);
 
             if (didStartRec) await maybeStopRecordingAndDownload();
         }
